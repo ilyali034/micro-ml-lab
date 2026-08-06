@@ -1,27 +1,42 @@
 import os
-from typing import Literal
-from .tables.experiment import metadata, experiments_table
-from repositories import AbstractMLRepository, AioSqliteRepository, SqlAlchemyRepository
+from typing import Literal, NamedTuple, Union
+from .tables.experiments import metadata
+from .repositories.model_repository import AioSqliteModelRepository, SqlAlchemyModelRepository
+from .repositories.experiment_repository import AioSqliteExperimentRepository, SqlAlchemyExperimentRepository
 
-async def init_db(strategy: Literal["aiosqlite", "sqlalchemy"] | None = None) -> AbstractMLRepository:
+class DatabaseContext(NamedTuple):
+    models: Union[AioSqliteModelRepository, SqlAlchemyModelRepository]
+    experiments: Union[AioSqliteExperimentRepository, SqlAlchemyExperimentRepository]
+
+async def init_db(strategy: Literal["aiosqlite", "sqlalchemy"] | None = None) -> DatabaseContext:
     """
-    Initializes the database based on the provided strategy or an environment variable.
-    Automatically creates database files and sets up the required tables.
+    Initializes the tracking database components using a selected driver framework strategy.
+    Guarantees correct cross-table sequence generation and returns paired storage repositories.
     """
     if strategy is None:
         strategy = os.getenv("DB_STRATEGY", "aiosqlite")
 
-    print(f"Selected database engine: {strategy}")
+    print(f"🔄 Selected database engine: {strategy}")
 
     if strategy == "aiosqlite":
-        repo = AioSqliteRepository(db_path="ml_lab.db")
-    elif strategy == "sqlalchemy":
-        repo = SqlAlchemyRepository(database_url="sqlite+aiosqlite:///ml_lab.db")
-    else:
-        raise ValueError(f"❌ Unknown database strategy: {strategy}")
+        db_path = "ml_lab.db"
+        model_repo = AioSqliteModelRepository(db_path=db_path)
+        experiment_repo = AioSqliteExperimentRepository(db_path=db_path)
+        
+        print(f"Running schema initialization for {strategy}...")
+        await model_repo.connect()
+        await experiment_repo.connect()
 
-    print(f"Running schema initialization for {strategy}...")
-    await repo.connect()
-    print("Database successfully initialized!")
+    elif strategy == "sqlalchemy":
+        database_url = "sqlite+aiosqlite:///ml_lab.db"
+        model_repo = SqlAlchemyModelRepository(database_url=database_url)
+        experiment_repo = SqlAlchemyExperimentRepository(database_url=database_url)
+        
+        print(f"Running schema initialization for {strategy}...")
+        await model_repo.connect() 
+    else:
+        raise ValueError(f"Unknown database strategy: {strategy}")
+
+    print("Database components successfully initialized!")
     
-    return repo
+    return DatabaseContext(models=model_repo, experiments=experiment_repo)
