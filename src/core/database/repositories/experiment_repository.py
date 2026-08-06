@@ -6,7 +6,7 @@ from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.schema import CreateTable
 
-from ..tables.experiments import metadata, experiments_table
+from ..tables import ModelTable, ExperimentTable
 
 class AioSqliteExperimentRepository(object):
     def __init__(self, db_path: str = "ml_lab.db"):
@@ -17,17 +17,17 @@ class AioSqliteExperimentRepository(object):
         self.db = await aiosqlite.connect(self.db_path)
         await self.db.execute("PRAGMA journal_mode=WAL;")
         await self.db.execute("PRAGMA foreign_keys=ON;")
-        create_stmt = str(CreateTable(experiments_table).compile(dialect=sqlite.dialect()))
+        create_stmt = str(CreateTable(ExperimentTable.__table__).compile(dialect=sqlite.dialect()))
         await self.db.execute(create_stmt)
         await self.db.commit()
 
     async def log_experiment(self, model_id: int, name: str, params: Dict[str, Any], metrics: Dict[str, Any], model_file_path: str | None = None) -> int:
-        stmt = experiments_table.insert().values(
+        stmt = ExperimentTable.__table__.insert().values(
             model_id=model_id,
-            name=name, 
+            run_name=name,  # В новой схеме колонка называется run_name
             params=json.dumps(params), 
             metrics=json.dumps(metrics),
-            model_file_path=model_file_path 
+            model_file_path=model_file_path
         )
         compiled = stmt.compile(dialect=sqlite.dialect())
         async with self.db.execute(str(compiled), compiled.params) as cursor:
@@ -35,7 +35,7 @@ class AioSqliteExperimentRepository(object):
             return cursor.lastrowid
 
     async def get_all_experiments(self) -> List[Dict[str, Any]]:
-        stmt = experiments_table.select()
+        stmt = ExperimentTable.__table__.select()
         compiled = stmt.compile(dialect=sqlite.dialect())
         async with self.db.execute(str(compiled), compiled.params) as cursor:
             rows = await cursor.fetchall()
@@ -43,10 +43,10 @@ class AioSqliteExperimentRepository(object):
                 {
                     "id": r[0], 
                     "model_id": r[1],
-                    "name": r[2], 
-                    "params": json.loads(r[3]), 
-                    "metrics": json.loads(r[4]),
-                    "model_file_path": r[5] 
+                    "run_name": r[2], 
+                    "params": json.loads(r[3]) if r[3] else {}, 
+                    "metrics": json.loads(r[4]) if r[4] else {},
+                    "model_file_path": r[5]
                 }
                 for r in rows
             ]
@@ -62,17 +62,16 @@ class SqlAlchemyExperimentRepository(object):
         self.session_factory = async_sessionmaker(self.engine, expire_on_commit=False)
 
     async def connect(self) -> None:
-        async with self.engine.begin() as conn:
-            await conn.run_sync(metadata.create_all)
+        pass  # Будет создано через инициализацию Base.metadata в модели
 
     async def log_experiment(self, model_id: int, name: str, params: Dict[str, Any], metrics: Dict[str, Any], model_file_path: str | None = None) -> int:
         async with self.session_factory() as session:
-            stmt = experiments_table.insert().values(
+            stmt = ExperimentTable.__table__.insert().values(
                 model_id=model_id,
-                name=name, 
+                run_name=name, 
                 params=json.dumps(params), 
                 metrics=json.dumps(metrics),
-                model_file_path=model_file_path 
+                model_file_path=model_file_path
             )
             result = await session.execute(stmt)
             await session.commit()
@@ -80,17 +79,17 @@ class SqlAlchemyExperimentRepository(object):
 
     async def get_all_experiments(self) -> List[Dict[str, Any]]:
         async with self.session_factory() as session:
-            stmt = select(experiments_table)
+            stmt = select(ExperimentTable)
             result = await session.execute(stmt)
-            rows = result.fetchall()
+            rows = result.scalars().all()
             return [
                 {
-                    "id": r[0], 
-                    "model_id": r[1],
-                    "name": r[2], 
-                    "params": json.loads(r[3]), 
-                    "metrics": json.loads(r[4]),
-                    "model_file_path": r[5] 
+                    "id": r.id, 
+                    "model_id": r.model_id,
+                    "run_name": r.run_name, 
+                    "params": json.loads(r.params) if r.params else {}, 
+                    "metrics": json.loads(r.metrics) if r.metrics else {},
+                    "model_file_path": r.model_file_path
                 }
                 for r in rows
             ]
