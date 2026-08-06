@@ -1,0 +1,7 @@
+fastapi
+transformers
+scikit-learn
+sqlalchemy
+pydantic
+aiosqlite
+prometheus-client
