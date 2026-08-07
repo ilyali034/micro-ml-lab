@@ -3,6 +3,7 @@ from typing import Optional
 from sqlalchemy import ForeignKey, Text, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from .models import ModelTable
 from .base import Base
 
 class ExperimentTable(Base):

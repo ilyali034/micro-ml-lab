@@ -4,6 +4,8 @@ from typing import List
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from .experiments import ExperimentTable
+from .base import Base 
 
 class ModelTable(Base):
     __tablename__ = "models"
