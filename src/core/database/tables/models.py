@@ -1,6 +1,6 @@
 
 from sqlalchemy import String
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,6 +12,8 @@ class ModelTable(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+
+    model_file_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     experiments: Mapped[List["ExperimentTable"]] = relationship(
         back_populates="model", cascade="all, delete-orphan"

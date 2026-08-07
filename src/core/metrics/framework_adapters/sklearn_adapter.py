@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...exceptions.adapters import SklearnParamCountError
 
 @dataclass
 class SklearnParamBreakdown:
@@ -10,10 +11,6 @@ class SklearnParamBreakdown:
     is_fitted: bool
     is_sparse: bool
     n_sub_estimators: int
-
-
-class SklearnParamCountError(Exception):
-    pass
 
 
 class SklearnAdapter:

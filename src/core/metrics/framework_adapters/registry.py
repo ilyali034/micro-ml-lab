@@ -4,11 +4,7 @@ from .pytorch_adapter import PytorchAdapter
 from .transformers_adapter import TransformersAdapter
 from .sklearn_adapter import SklearnAdapter
 from .tensorflow_adapter import TensorflowAdapter
-
-
-class NoMatchingAdapterError(Exception):
-    pass
-
+from ...exceptions.adapters import NoMatchingAdapterError
 
 class AdapterRegistry:
     def __init__(self, adapters: list[FrameworkAdapter] | None = None):

@@ -15,6 +15,5 @@ class ExperimentTable(Base):
     
     params: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     metrics: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    model_file_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     model: Mapped["ModelTable"] = relationship(back_populates="experiments")

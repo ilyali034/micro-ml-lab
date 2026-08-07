@@ -6,7 +6,7 @@ from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.schema import CreateTable
 
-from ..tables import ModelTable, ExperimentTable
+from ..tables.experiments import ExperimentTable
 
 class AioSqliteExperimentRepository(object):
     def __init__(self, db_path: str = "ml_lab.db"):
@@ -21,13 +21,12 @@ class AioSqliteExperimentRepository(object):
         await self.db.execute(create_stmt)
         await self.db.commit()
 
-    async def log_experiment(self, model_id: int, name: str, params: Dict[str, Any], metrics: Dict[str, Any], model_file_path: str | None = None) -> int:
+    async def log_experiment(self, model_id: int, name: str, params: Dict[str, Any], metrics: Dict[str, Any]) -> int:
         stmt = ExperimentTable.__table__.insert().values(
             model_id=model_id,
-            run_name=name,  # В новой схеме колонка называется run_name
+            run_name=name,  
             params=json.dumps(params), 
             metrics=json.dumps(metrics),
-            model_file_path=model_file_path
         )
         compiled = stmt.compile(dialect=sqlite.dialect())
         async with self.db.execute(str(compiled), compiled.params) as cursor:
@@ -62,7 +61,7 @@ class SqlAlchemyExperimentRepository(object):
         self.session_factory = async_sessionmaker(self.engine, expire_on_commit=False)
 
     async def connect(self) -> None:
-        pass  # Будет создано через инициализацию Base.metadata в модели
+        pass  
 
     async def log_experiment(self, model_id: int, name: str, params: Dict[str, Any], metrics: Dict[str, Any], model_file_path: str | None = None) -> int:
         async with self.session_factory() as session:

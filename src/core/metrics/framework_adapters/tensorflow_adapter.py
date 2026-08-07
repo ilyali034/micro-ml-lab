@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...exceptions.adapters import TensorflowUnbuiltModelError
 
 @dataclass
 class TensorflowParamBreakdown:
@@ -11,10 +12,6 @@ class TensorflowParamBreakdown:
     is_built: bool
     mixed_precision_policy: str | None
     dtype_breakdown: dict[str, int] = field(default_factory=dict)
-
-
-class TensorflowUnbuiltModelError(Exception):
-    pass
 
 
 class TensorflowAdapter:
