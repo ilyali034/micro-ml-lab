@@ -3,14 +3,14 @@ from typing import Literal, NamedTuple, Union
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.dialects import sqlite
 
-# Import the main declarative Base
 from .tables import Base, ModelTable, ExperimentTable
 from .repositories.model_repository import AioSqliteModelRepository, SqlAlchemyModelRepository
 from .repositories.experiment_repository import AioSqliteExperimentRepository, SqlAlchemyExperimentRepository
+from .repositories.protocols import ModelRepository, ExperimentRepository 
 
 class DatabaseContext(NamedTuple):
-    models: Union[AioSqliteModelRepository, SqlAlchemyModelRepository]
-    experiments: Union[AioSqliteExperimentRepository, SqlAlchemyExperimentRepository]
+    models: ModelRepository
+    experiments: ExperimentRepository
 
 async def init_db(strategy: Literal["aiosqlite", "sqlalchemy"] | None = None) -> DatabaseContext:
     """
