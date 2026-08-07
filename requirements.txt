@@ -5,3 +5,5 @@ sqlalchemy
 pydantic
 aiosqlite
 prometheus-client
+torch
+tensorflow
