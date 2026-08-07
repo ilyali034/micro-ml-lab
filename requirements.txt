@@ -7,3 +7,4 @@ aiosqlite
 prometheus-client
 torch
 tensorflow
+peft
