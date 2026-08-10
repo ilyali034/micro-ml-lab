@@ -13,7 +13,7 @@ class ModelService(object):
         self.model_repository = model_repository
         self.logger = logging.getLogger(__name__)
 
-    async def add_model(
+    async def add_model_async(
         self,
         model_name: str,
         model: str
@@ -29,7 +29,7 @@ class ModelService(object):
         self.logger.info("Model '%s' created successfully (id=%s)", model_name, model_id)
         return model_id
 
-    async def delete_model(
+    async def delete_model_async(
         self,
         model_id: UUID
     ) -> bool:
@@ -47,11 +47,19 @@ class ModelService(object):
             self.logger.error("Model id=%s existed but delete_model returned False", model_id)
         return result
 
-    async def get_model_by_id(
+    async def get_model_by_id_async(
         self, 
         model_id: UUID
     ): 
 
         return await self.model_repository.get_model_by_id(model_id) 
+
+
+    async def get_model_by_name_async(
+        self,
+        model_name: str 
+    ): 
+        return await self.model_repository.get_model_by_name(model_name) 
+    
 
     

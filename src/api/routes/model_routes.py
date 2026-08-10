@@ -24,14 +24,14 @@ def get_model_service() -> ModelService:
     status_code=status.HTTP_201_CREATED
 )
 async def add_model_route_async(
-    model: bool,
+    model: CreateModelDto,
     model_service: Annotated[ModelService, Depends(get_model_service)]
 ): 
 
     logger.info(f"Received request to create model: {model.name}")
     
     try: 
-        result = await model_service.add_model(model.name, model.model_file_path)
+        result = await model_service.add_model_async(model.name, model.model_file_path)
         logger.info(f"Successfully created model with ID: {result.id}")
         return result
     
@@ -50,14 +50,14 @@ async def delete_model_route_async(
 ) -> bool: 
 
     try: 
-        model = await model_service.delete_model(model) 
+        model = await model_service.delete_model_async(model) 
         if model is True: 
             logger.info(f"Successfully deleted model with id {model_id}")
             return True 
 
     except HTTPException as e: 
         raise 
-    
+
     except Exception as e: 
         logger.error(f"Failed deleted model with id: {model_id} error: {str(e)}", exc_info=True)
 
@@ -71,13 +71,13 @@ async def delete_model_route_async(
     "/models/get/{model_id}",
     response_model=ModelDto
 )
-async def get_model_route_async(
+async def get_model_by_id_route_async(
     model_id: UUID,
     model_service: Annotated[ModelService, Depends(get_model_service)] 
 ) -> ModelDto: 
 
     try: 
-        result = await model_service.get_model_by_id(model_id) 
+        result = await model_service.get_model_by_id_async(model_id) 
 
         if result is None: 
             logger.warning(f"Model with ID {model_id} not found in database") 
@@ -94,6 +94,37 @@ async def get_model_route_async(
 
     except Exception as e: 
         logger.error(f"Failed get model with id: {model_id} error: {str(e)}", exc_info=True)
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred while fetching the model"
+        )
+
+@app.get(
+    "models/get/{model_name}"
+) 
+async def get_model_by_name_route_async(
+    model_name: str, 
+    model_service: Annotated[ModelService, Depends(get_model_service)]
+) -> ModelDto: 
+
+    try: 
+        model = await model_service.get_model_by_name_async(model_name)
+
+        if model is None: 
+            logger.warning(f"Model with name {model_name} not found in database") 
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail=f"Model with name {model_name} does not exists"
+            ) 
+
+        return model 
+
+    except HTTPException as e: 
+        raise 
+
+    except Exception as e: 
+        logger.error(f"Failed get model with name: {model_name} error: {str(e)}", exc_info=True)
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
