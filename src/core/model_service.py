@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from .database.repositories.protocols import ModelRepository
 from .exceptions.models import ModelAlreadyExistsError, ModelNotFoundError
 
@@ -29,7 +31,7 @@ class ModelService(object):
 
     async def delete_model(
         self,
-        model_id: int
+        model_id: UUID
     ) -> bool:
         self.logger.info("Deleting model id=%s", model_id)
 
@@ -44,3 +46,12 @@ class ModelService(object):
         else:
             self.logger.error("Model id=%s existed but delete_model returned False", model_id)
         return result
+
+    async def get_model_by_id(
+        self, 
+        model_id: UUID
+    ): 
+
+        return await self.model_repository.get_model_by_id(model_id) 
+
+    

@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 import aiosqlite
 from typing import Any, Dict, List
 from sqlalchemy import select
@@ -21,7 +22,7 @@ class AioSqliteExperimentRepository(object):
         await self.db.execute(create_stmt)
         await self.db.commit()
 
-    async def log_experiment(self, model_id: int, name: str, params: Dict[str, Any], metrics: Dict[str, Any]) -> int:
+    async def log_experiment(self, model_id: UUID, name: str, params: Dict[str, Any], metrics: Dict[str, Any]) -> int:
         stmt = ExperimentTable.__table__.insert().values(
             model_id=model_id,
             run_name=name,  
@@ -63,7 +64,7 @@ class SqlAlchemyExperimentRepository(object):
     async def connect(self) -> None:
         pass  
 
-    async def log_experiment(self, model_id: int, name: str, params: Dict[str, Any], metrics: Dict[str, Any], model_file_path: str | None = None) -> int:
+    async def log_experiment(self, model_id: UUID, name: str, params: Dict[str, Any], metrics: Dict[str, Any], model_file_path: str | None = None) -> UUID:
         async with self.session_factory() as session:
             stmt = ExperimentTable.__table__.insert().values(
                 model_id=model_id,

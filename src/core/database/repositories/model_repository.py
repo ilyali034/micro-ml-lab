@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 import aiosqlite
 from typing import Any, Dict, List
 from sqlalchemy import select, func
@@ -116,7 +117,7 @@ class SqlAlchemyModelRepository(object):
                 return None
             return {"id": row.id, "name": row.name, "model_file_path": row.model_file_path}
 
-    async def get_model_by_id(self, model_id: int) -> Dict[int, Any] | None:
+    async def get_model_by_id(self, model_id: UUID) -> Dict[UUID, Any] | None:
         async with self.session_factory() as session: 
             stmt = select(ModelTable).where(ModelTable.id == model_id)
             result = await session.execute(stmt)
@@ -125,7 +126,7 @@ class SqlAlchemyModelRepository(object):
                 return None
             return {"id": row.id, "name": row.name, "model_file_path": row.model_file_path}
 
-    async def update_model_file_path(self, model_id: int, model_file_path: str) -> None:
+    async def update_model_file_path(self, model_id: UUID, model_file_path: str) -> None:
         async with self.session_factory() as session:
             stmt = ModelTable.__table__.update().where(
                 ModelTable.__table__.c.id == model_id
@@ -149,7 +150,7 @@ class SqlAlchemyModelRepository(object):
             rows = result.fetchall()
             return [{"id": r[0], "name": r[1], "experiment_count": r[2]} for r in rows]
 
-    async def delete_model(self, model_id: int) -> bool:
+    async def delete_model(self, model_id: UUID) -> bool:
             async with self.session_factory() as session:
                 stmt = select(ModelTable).where(ModelTable.id == model_id)
                 result = await session.execute(stmt)

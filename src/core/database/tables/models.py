@@ -1,4 +1,6 @@
 
+from uuid import UUID
+
 from sqlalchemy import String
 from typing import List, Optional
 
@@ -10,7 +12,7 @@ from .base import Base
 class ModelTable(Base):
     __tablename__ = "models"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[UUID] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
     model_file_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)

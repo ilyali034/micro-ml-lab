@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID 
 
 from sqlalchemy import ForeignKey, Text, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -6,10 +7,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .models import ModelTable
 from .base import Base
 
+
 class ExperimentTable(Base):
     __tablename__ = "experiments"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[UUID] = mapped_column(primary_key=True, autoincrement=True)
     model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
     run_name: Mapped[str] = mapped_column(String, nullable=False)
     
