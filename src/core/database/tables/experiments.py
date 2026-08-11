@@ -12,7 +12,7 @@ class ExperimentTable(Base):
     __tablename__ = "experiments"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, autoincrement=True)
-    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
+    model_id: Mapped[UUID] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
     run_name: Mapped[str] = mapped_column(String, nullable=False)
     
     params: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

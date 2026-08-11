@@ -73,19 +73,19 @@ class AioSqliteModelRepository(object):
             return [{"id": r[0], "name": r[1], "experiment_count": r[2]} for r in rows]
         
     async def delete_model(self, model_id: int) -> bool:
-            check_stmt = ModelTable.__table__.select().where(ModelTable.__table__.c.id == model_id)
-            compiled_check = check_stmt.compile(dialect=sqlite.dialect())
-            async with self.db.execute(str(compiled_check), compiled_check.params) as cursor:
-                row = await cursor.fetchone()
-                if row is None:
-                    return False
+        check_stmt = ModelTable.__table__.select().where(ModelTable.__table__.c.id == model_id)
+        compiled_check = check_stmt.compile(dialect=sqlite.dialect())
+        async with self.db.execute(str(compiled_check), compiled_check.params) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return False
 
-            delete_stmt = ModelTable.__table__.delete().where(ModelTable.__table__.c.id == model_id)
-            compiled_delete = delete_stmt.compile(dialect=sqlite.dialect())
-            async with self.db.execute(str(compiled_delete), compiled_delete.params):
-                await self.db.commit()
+        delete_stmt = ModelTable.__table__.delete().where(ModelTable.__table__.c.id == model_id)
+        compiled_delete = delete_stmt.compile(dialect=sqlite.dialect())
+        async with self.db.execute(str(compiled_delete), compiled_delete.params):
+            await self.db.commit()
 
-            return True
+        return True
     
     async def close(self) -> None:
         if self.db:
@@ -151,18 +151,18 @@ class SqlAlchemyModelRepository(object):
             return [{"id": r[0], "name": r[1], "experiment_count": r[2]} for r in rows]
 
     async def delete_model(self, model_id: UUID) -> bool:
-            async with self.session_factory() as session:
-                stmt = select(ModelTable).where(ModelTable.id == model_id)
-                result = await session.execute(stmt)
-                model = result.scalar_one_or_none()
+        async with self.session_factory() as session:
+            stmt = select(ModelTable).where(ModelTable.id == model_id)
+            result = await session.execute(stmt)
+            model = result.scalar_one_or_none()
 
-                if model is None:
-                    return False
+            if model is None:
+                return False
 
-                await session.delete(model)
-                await session.commit()
+            await session.delete(model)
+            await session.commit()
 
-            return True
+        return True
 
     async def close(self) -> None:
         await self.engine.dispose()
