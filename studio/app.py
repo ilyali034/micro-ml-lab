@@ -103,7 +103,8 @@ elif page == "Model Studio":
         info = api("GET", "/runtime/model", timeout=5)
         st.markdown("### Активная модель")
         st.json(info)
-        prompt = st.text_area("Входной текст", "Расскажи кратко, что такое машинное обучение.", height=120)
+        default_prompt = "The capital of France is [MASK]." if info["task"] == "masked_lm" else "Расскажи кратко, что такое машинное обучение."
+        prompt = st.text_area("Входной текст", default_prompt, height=120)
         max_tokens = st.slider("Максимум новых токенов", 16, 512, 128, step=16)
         sampling = st.checkbox("Использовать sampling", value=False)
         if st.button("▶ Выполнить inference", type="primary"):
