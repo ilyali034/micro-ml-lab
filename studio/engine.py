@@ -122,7 +122,7 @@ def run_inference(model, tokenizer, task: str, text: str, max_new_tokens: int = 
                 pad_token_id=tokenizer.eos_token_id,
             )
             generated = output[0, prompt_tokens:]
-            result = tokenizer.decode(generated, skip_special_tokens=True)
+            result = tokenizer.decode(generated.tolist(), skip_special_tokens=True)
             output_tokens = int(generated.numel())
         elif task == "masked":
             output = model(**inputs).logits
@@ -146,7 +146,7 @@ def run_inference(model, tokenizer, task: str, text: str, max_new_tokens: int = 
             top = probs.topk(min(5, probs.numel()))
             labels = model.config.id2label or {}
             result = "\n".join(
-                f"{labels.get(int(idx), f'LABEL_{int(idx)}')}  —  {float(score):.4f}"
+                f"{labels.get(int(idx), 'LABEL_' + str(int(idx)))}  —  {float(score):.4f}"
                 for score, idx in zip(top.values, top.indices)
             )
             output_tokens = 1
