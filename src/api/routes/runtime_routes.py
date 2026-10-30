@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ...core.inference.runtime import (
     InferenceError,
@@ -12,7 +12,11 @@ from ...core.inference.runtime import (
     ModelNotLoadedError,
 )
 from ...shared.dtos.runtime import BenchmarkRequest, InferenceRequest, LoadModelRequest
-from ..app import get_inference_engine
+def get_inference_engine(request: Request) -> LocalInferenceEngine:
+    engine = getattr(request.app.state, "inference_engine", None)
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Local inference runtime is not initialized.")
+    return engine
 
 router = APIRouter(prefix="/runtime", tags=["local-runtime"])
 
