@@ -1,4 +1,5 @@
 fastapi
+uvicorn[standard]
 transformers
 scikit-learn
 sqlalchemy
@@ -8,3 +9,5 @@ prometheus-client
 torch
 tensorflow
 peft
+accelerate
+psutil
