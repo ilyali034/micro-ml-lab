@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from typing import Annotated
 import logging
 
-from ...shared.dtos.models import ModelDto, CreateModelDto
-from ...core.model_service import ModelService
-from ...core.database.repositories.protocols import ModelRepository
+from shared.dtos.models import ModelDto, CreateModelDto
+from core.model_service import ModelService
+from core.database.repositories.protocols import ModelRepository
 
 async def get_model_repository(request: Request) -> ModelRepository:
     db_context = getattr(request.app.state, "db_context", None)
