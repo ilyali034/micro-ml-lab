@@ -1,8 +1,7 @@
-import json
-import sys
-import streamlit as st
+import os
+import requests
 import pandas as pd
-from engine import benchmark, benchmark_history, discover_local_models, hardware_info, load_model, run_inference
+import streamlit as st
 
 st.set_page_config(page_title="Micro ML Lab Studio", page_icon="🧪", layout="wide")
 st.markdown("""
@@ -20,136 +19,170 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 def hero(tag, title, subtitle):
     st.markdown(f'<div class="hero"><div class="eyebrow">{tag}</div><h1>{title}</h1><p>{subtitle}</p></div>', unsafe_allow_html=True)
 
-if "model" not in st.session_state:
-    st.session_state.update(model=None, tokenizer=None, task=None, model_id=None, device=None)
+
+def api(method, path, **kwargs):
+    base = st.session_state.api_url.rstrip("/")
+    timeout = kwargs.pop("timeout", 600)
+    try:
+        response = requests.request(method, base + path, timeout=timeout, **kwargs)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        detail = exc.response.text if exc.response is not None else str(exc)
+        raise RuntimeError(f"{path}: {detail}") from exc
+
+
+if "api_url" not in st.session_state:
+    st.session_state.api_url = os.getenv("MICRO_ML_API_URL", "http://127.0.0.1:8000")
 
 with st.sidebar:
     st.markdown("## 🧪 Micro ML Lab")
-    st.caption("LOCAL AI WORKBENCH · v0.2")
+    st.caption("LOCAL INFERENCE WORKBENCH")
+    st.session_state.api_url = st.text_input("Backend API", st.session_state.api_url)
     page = st.radio("WORKSPACE", ["Overview", "Model Studio", "Benchmark Lab", "Experiments", "System"])
     st.divider()
-    if st.session_state.model is not None:
-        st.success("Модель загружена")
-        st.caption(str(st.session_state.model_id))
-        if st.button("Выгрузить модель", use_container_width=True):
-            import torch
-            st.session_state.update(model=None, tokenizer=None, task=None, model_id=None, device=None)
-            if torch.cuda.is_available(): torch.cuda.empty_cache()
-            st.rerun()
-    else:
-        st.caption("Нет активной модели")
+    try:
+        runtime_status = api("GET", "/runtime/status", timeout=5)
+        active = runtime_status.get("active_model")
+        if active:
+            st.success("Модель загружена")
+            st.caption(active["model_id"])
+            if st.button("Выгрузить модель", use_container_width=True):
+                api("POST", "/runtime/unload")
+                st.rerun()
+        else:
+            st.caption("Runtime готов · модель не загружена")
+    except RuntimeError:
+        st.error("Backend недоступен")
 
 if page == "Overview":
-    hero("YOUR PERSONAL ML WORKSPACE", "Лаборатория начинается здесь.", "Запускай модели локально, измеряй производительность и сохраняй эксперименты.")
-    info, history = hardware_info(), benchmark_history()
-    a,b,c,d=st.columns(4)
-    a.metric("Устройство",info["device"].upper(),"CUDA доступна" if info["cuda"] else "CPU режим")
-    b.metric("Свободная RAM",f'{info["ram_available_gb"]:.1f} GB',f'из {info["ram_total_gb"]:.1f} GB')
-    gpu=info["gpus"][0] if info["gpus"] else None
-    c.metric("GPU",gpu["name"] if gpu else "Не обнаружена")
-    d.metric("Эксперименты",len(history),"локальная история")
-    st.markdown("### Рабочие модули")
-    x,y,z=st.columns(3)
-    x.info("**Model Studio**\n\nЗагрузка LLM/BERT, генерация, классификация и embeddings.")
-    y.info("**Benchmark Lab**\n\nLatency, tokens/sec, VRAM и повторяемые тесты.")
-    z.info("**Experiments**\n\nИстория запусков и экспорт результатов.")
-    if history: st.dataframe(pd.DataFrame(history).tail(8).iloc[::-1],use_container_width=True,hide_index=True)
-    else: st.caption("Проведи первый benchmark, чтобы здесь появилась история.")
+    hero("YOUR PERSONAL ML WORKSPACE", "Лаборатория начинается здесь.", "Управляй моделями через единый локальный inference runtime.")
+    try:
+        status = api("GET", "/runtime/status")
+        resources = status["resources"]
+        gpus = resources.get("gpus", [])
+        history = api("GET", "/runtime/benchmarks", params={"limit": 100})
+        a, b, c, d = st.columns(4)
+        a.metric("Runtime", status["state"].upper(), "CUDA" if status["cuda_available"] else "CPU")
+        b.metric("Свободная RAM", f'{resources["available_ram_gb"]:.1f} GB', f'из {resources["total_ram_gb"]:.1f} GB')
+        c.metric("GPU", gpus[0]["name"] if gpus else "Не обнаружена")
+        d.metric("Benchmarks", len(history), "локальная история")
+        if status.get("active_model"):
+            st.markdown("### Активная модель")
+            st.json(status["active_model"])
+        x, y, z = st.columns(3)
+        x.info("**Model Studio**\n\nЗагрузка LLM/BERT и выполнение inference.")
+        y.info("**Benchmark Lab**\n\nLatency, throughput и VRAM.")
+        z.info("**Experiments**\n\nИстория измерений и экспорт.")
+    except Exception as exc:
+        st.error(str(exc))
 
 elif page == "Model Studio":
-    hero("MODEL PLAYGROUND","Model Studio","Локальные LLM и BERT в одном интерфейсе.")
-    models=discover_local_models()
-    if models: st.caption(f"Обнаружено локальных папок с config.json: {len(models)}")
-    paths=[""]+[m["path"] for m in models]
-    chosen=st.selectbox("Локальные модели",paths,format_func=lambda p: next((m["name"] for m in models if m["path"]==p),"Выбрать..."))
-    left,right=st.columns([2,1])
-    with left: model_id=st.text_input("Путь к модели или Hugging Face ID",value=chosen,placeholder="D:/ml_models/Qwen2.5-0.5B-Instruct")
-    with right:
-        task_label=st.selectbox("Задача",["LLM · генерация","BERT · masked LM","BERT · классификация","Encoder · embeddings"])
-        task={"LLM · генерация":"causal","BERT · masked LM":"masked","BERT · классификация":"classification","Encoder · embeddings":"embeddings"}[task_label]
-        dtype=st.selectbox("Точность",["auto","float16","bfloat16","float32"])
-        device=st.selectbox("Устройство",["auto","cuda","cpu"])
-    if st.button("Загрузить модель",type="primary",use_container_width=True):
-        try:
-            with st.spinner("Загрузка модели и токенизатора..."):
-                model,tokenizer,actual=load_model(model_id,task,dtype,device)
-            st.session_state.update(model=model,tokenizer=tokenizer,task=task,model_id=model_id,device=actual)
-            st.success(f"Модель загружена на {actual}")
-        except Exception as exc: st.error(f"Ошибка загрузки: {exc}")
-    if st.session_state.model is not None:
-        st.divider()
-        st.markdown(f"#### Активная модель: {st.session_state.model_id}")
-        default="The capital of France is [MASK]." if st.session_state.task=="masked" else "Расскажи кратко, что такое машинное обучение."
-        prompt=st.text_area("Входной текст",default,height=130)
-        tokens=st.slider("Новых токенов",16,512,128,step=16) if st.session_state.task=="causal" else 1
-        if st.button("▶ Запустить инференс",type="primary"):
+    hero("MODEL PLAYGROUND", "Model Studio", "Загружай локальные checkpoints или модели Hugging Face.")
+    with st.container(border=True):
+        model_id = st.text_input("Локальный путь или Hugging Face ID", placeholder="D:/ml_models/Qwen2.5-0.5B-Instruct")
+        a, b, c = st.columns(3)
+        task_label = a.selectbox("Тип модели", ["LLM · генерация", "BERT · masked LM", "BERT · классификация", "Encoder · embeddings"])
+        task = {"LLM · генерация": "causal", "BERT · masked LM": "masked_lm", "BERT · классификация": "classification", "Encoder · embeddings": "embeddings"}[task_label]
+        device = b.selectbox("Устройство", ["auto", "cuda", "cpu"])
+        dtype = c.selectbox("Точность", ["auto", "float16", "bfloat16", "float32"], index=1)
+        local_only = st.checkbox("Только локальные файлы (без скачивания)", value=True)
+        if st.button("Загрузить в runtime", type="primary", use_container_width=True):
             try:
-                with st.spinner("Выполняется инференс..."):
-                    result=run_inference(st.session_state.model,st.session_state.tokenizer,st.session_state.task,prompt,tokens)
-                st.markdown("#### Результат")
+                with st.spinner("Загрузка модели. Это может занять несколько минут..."):
+                    info = api("POST", "/runtime/load", json={"model_id": model_id, "task": task, "device": device, "dtype": dtype, "local_files_only": local_only}, timeout=1800)
+                st.success("Модель загружена")
+                st.json(info)
+            except Exception as exc:
+                st.error(str(exc))
+    try:
+        info = api("GET", "/runtime/model", timeout=5)
+        st.markdown("### Активная модель")
+        st.json(info)
+        prompt = st.text_area("Входной текст", "Расскажи кратко, что такое машинное обучение.", height=120)
+        max_tokens = st.slider("Максимум новых токенов", 16, 512, 128, step=16)
+        sampling = st.checkbox("Использовать sampling", value=False)
+        if st.button("▶ Выполнить inference", type="primary"):
+            with st.spinner("Модель выполняет задачу..."):
+                result = api("POST", "/runtime/infer", json={"text": prompt, "max_new_tokens": max_tokens, "do_sample": sampling})
+            st.markdown("#### Результат")
+            if isinstance(result["output"], str):
                 st.code(result["output"])
-                a,b,c=st.columns(3)
-                a.metric("Latency",f'{result["latency_seconds"]*1000:.1f} ms')
-                b.metric("Входные токены",result["input_tokens"])
-                c.metric("Скорость",f'{result["tokens_per_second"]:.2f} tok/s')
-            except Exception as exc: st.error(str(exc))
-    else: st.info("Укажи модель и загрузи её. Поддерживаются локальные папки и Hugging Face ID.")
+            else:
+                st.json(result["output"])
+            a, b, c = st.columns(3)
+            a.metric("Latency", f'{result["latency_seconds"] * 1000:.1f} ms')
+            b.metric("Входные токены", result["input_tokens"])
+            c.metric("Throughput", f'{result["tokens_per_second"]:.2f} tok/s')
+    except RuntimeError:
+        st.info("Загрузи модель, чтобы открыть playground.")
+    except Exception as exc:
+        st.error(str(exc))
 
 elif page == "Benchmark Lab":
-    hero("PERFORMANCE ENGINEERING","Benchmark Lab","Прогрев, повторные измерения и сравнение производительности.")
-    if st.session_state.model is None: st.warning("Сначала загрузи модель в Model Studio.")
-    else:
-        st.caption(f'Активная модель: {st.session_state.model_id} · {st.session_state.task}')
-        prompt=st.text_area("Тестовый prompt","Explain what a transformer neural network is in simple terms.")
-        a,b=st.columns(2)
-        iterations=a.slider("Количество измерений",3,30,5)
-        tokens=b.slider("Новых токенов",16,256,64,step=16)
-        if st.button("⚡ Запустить benchmark",type="primary",use_container_width=True):
-            try:
-                with st.spinner("Прогрев и серия измерений..."):
-                    result=benchmark(st.session_state.model,st.session_state.tokenizer,st.session_state.task,prompt,iterations,tokens)
-                st.success("Результаты сохранены в results/studio_benchmarks.jsonl")
-                a,b,c,d=st.columns(4)
-                a.metric("Средняя latency",f'{result["mean_latency_ms"]:.1f} ms')
-                b.metric("Медиана",f'{result["median_latency_ms"]:.1f} ms')
-                c.metric("Throughput",f'{result["mean_tokens_per_second"]:.2f} tok/s')
-                d.metric("Peak VRAM",f'{result["peak_vram_gb"]:.2f} GB')
-                st.line_chart(pd.DataFrame({"Latency, ms":[v*1000 for v in result["samples_seconds"]]}))
-                st.json(result)
-            except Exception as exc: st.error(str(exc))
-    history=benchmark_history()
-    if history:
-        st.markdown("### История измерений")
-        st.dataframe(pd.DataFrame(history).iloc[::-1],use_container_width=True,hide_index=True)
-        st.download_button("Скачать JSON",json.dumps(history,ensure_ascii=False,indent=2),"micro-ml-benchmarks.json","application/json")
+    hero("PERFORMANCE ENGINEERING", "Benchmark Lab", "Прогрев, повторные измерения и история на стороне backend.")
+    try:
+        info = api("GET", "/runtime/model", timeout=5)
+        st.caption(f'{info["model_id"]} · {info["task"]} · {info["device"]}')
+        prompt = st.text_area("Тестовый prompt", "Explain what a transformer neural network is in simple terms.")
+        a, b, c = st.columns(3)
+        iterations = a.slider("Измерений", 1, 30, 5)
+        warmups = b.slider("Прогрев", 0, 5, 1)
+        tokens = c.slider("Новых токенов", 16, 256, 64, step=16)
+        if st.button("⚡ Запустить benchmark", type="primary", use_container_width=True):
+            with st.spinner("Выполняется benchmark..."):
+                result = api("POST", "/runtime/benchmark", json={"prompt": prompt, "iterations": iterations, "warmup_runs": warmups, "max_new_tokens": tokens}, timeout=1800)
+            st.success("Результат сохранён движком")
+            x, y, z, w = st.columns(4)
+            x.metric("Средняя latency", f'{result["mean_latency_ms"]:.1f} ms')
+            y.metric("Медиана", f'{result["median_latency_ms"]:.1f} ms')
+            z.metric("Throughput", f'{result["throughput_tokens_per_second"]:.2f} tok/s')
+            w.metric("Peak VRAM", f'{result["peak_cuda_allocated_bytes"] / 1024**3:.2f} GB')
+            st.line_chart(pd.DataFrame({"Latency, ms": [v * 1000 for v in result["samples_seconds"]]}))
+            st.json(result)
+    except RuntimeError:
+        st.warning("Сначала загрузи модель в Model Studio.")
+    except Exception as exc:
+        st.error(str(exc))
 
 elif page == "Experiments":
-    hero("RESEARCH LOGBOOK","Experiments","История запусков и результаты для дальнейшего анализа.")
-    history=benchmark_history()
-    if history:
-        df=pd.DataFrame(history)
-        a,b=st.columns(2); a.metric("Всего запусков",len(df)); b.metric("Средняя latency",f'{df["mean_latency_ms"].mean():.1f} ms')
-        st.dataframe(df.iloc[::-1],use_container_width=True,hide_index=True)
-        st.bar_chart(df.reset_index().rename(columns={"index":"Run","mean_tokens_per_second":"tok/s"}).set_index("Run")[["tok/s"]])
-    else: st.info("Экспериментов пока нет. Запусти тест в Benchmark Lab.")
+    hero("RESEARCH LOGBOOK", "Experiments", "История benchmark хранится на стороне локального backend.")
+    try:
+        history = api("GET", "/runtime/benchmarks", params={"limit": 500})
+        if history:
+            df = pd.DataFrame(history)
+            a, b = st.columns(2)
+            a.metric("Всего запусков", len(df))
+            b.metric("Средняя latency", f'{df["mean_latency_ms"].mean():.1f} ms')
+            st.dataframe(df.iloc[::-1], use_container_width=True, hide_index=True)
+            if "throughput_tokens_per_second" in df:
+                chart = df.reset_index().rename(columns={"index": "Run", "throughput_tokens_per_second": "tok/s"}).set_index("Run")[["tok/s"]]
+                st.bar_chart(chart)
+            st.download_button("Скачать JSON", df.to_json(orient="records", force_ascii=False, indent=2), "micro-ml-benchmarks.json", "application/json")
+        else:
+            st.info("Экспериментов пока нет.")
+    except Exception as exc:
+        st.error(str(exc))
 
 elif page == "System":
-    hero("HARDWARE TELEMETRY","System Monitor","Ресурсы машины и состояние CUDA.")
-    info=hardware_info()
-    a,b,c=st.columns(3)
-    a.metric("CPU threads",info["cpu"]); b.metric("RAM total",f'{info["ram_total_gb"]:.2f} GB'); c.metric("RAM available",f'{info["ram_available_gb"]:.2f} GB')
-    if info["gpus"]:
-        for i,gpu in enumerate(info["gpus"]):
-            st.markdown(f'### GPU {i} · {gpu["name"]}')
-            a,b,c=st.columns(3)
-            a.metric("VRAM total",f'{gpu["vram_total_gb"]:.2f} GB')
-            b.metric("Allocated",f'{gpu["vram_allocated_gb"]:.2f} GB')
-            c.metric("Reserved",f'{gpu["vram_reserved_gb"]:.2f} GB')
-            st.progress(min(gpu["vram_allocated_gb"]/max(gpu["vram_total_gb"],0.01),1.0))
-    else: st.warning("CUDA GPU не обнаружена. Доступен CPU режим.")
-    import torch
-    st.markdown("### Runtime")
-    st.json({"Python":sys.version.split()[0],"PyTorch":torch.__version__,"CUDA":torch.version.cuda,"CUDA available":torch.cuda.is_available()})
+    hero("HARDWARE TELEMETRY", "System Monitor", "Ресурсы и runtime status, полученные от backend.")
+    try:
+        status = api("GET", "/runtime/status")
+        resources = status["resources"]
+        a, b, c = st.columns(3)
+        a.metric("CPU threads", resources["cpu_count"])
+        b.metric("RAM total", f'{resources["total_ram_gb"]:.2f} GB')
+        c.metric("RAM available", f'{resources["available_ram_gb"]:.2f} GB')
+        for gpu in resources.get("gpus", []):
+            st.markdown(f'### {gpu["name"]}')
+            x, y = st.columns(2)
+            x.metric("VRAM total", f'{gpu["total_vram_gb"]:.2f} GB')
+            y.metric("VRAM free", f'{gpu["free_vram_gb"]:.2f} GB')
+            st.progress(min(1 - gpu["free_vram_gb"] / max(gpu["total_vram_gb"], 0.01), 1.0))
+        st.json({"runtime": status["state"], "PyTorch": status["torch"], "CUDA": status["cuda_version"], "CUDA available": status["cuda_available"]})
+    except Exception as exc:
+        st.error(str(exc))
