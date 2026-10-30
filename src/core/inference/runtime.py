@@ -144,7 +144,14 @@ class LocalInferenceEngine:
             raise ModelLoadError("Remote model downloads are disabled by runtime configuration.")
 
         with self._lock:
-            # A failed new load must not destroy the currently working model.
+            # Keep only one checkpoint in memory: free VRAM before replacement.
+            previous = self._active
+            self._active = None
+            if previous is not None:
+                del previous
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
             new_model = None
             new_tokenizer = None
             try:
@@ -209,7 +216,6 @@ class LocalInferenceEngine:
                 logger.info("Loaded model %s successfully", model_id)
                 return self.model_info()
             except Exception as exc:
-                # Keep old model alive until the replacement has fully loaded.
                 if new_model is not None:
                     del new_model
                 if new_tokenizer is not None:
@@ -447,7 +453,7 @@ class LocalInferenceEngine:
     @staticmethod
     def _resolve_dtype(dtype: ModelDtype):
         return {
-            "auto": None,
+            "auto": "auto",
             "float16": torch.float16,
             "bfloat16": torch.bfloat16,
             "float32": torch.float32,
@@ -458,8 +464,8 @@ class LocalInferenceEngine:
         free_bytes, total_bytes = torch.cuda.mem_get_info(0)
         ram_available = psutil.virtual_memory().available
         return {
-            0: max(int(free_bytes * 0.88), 256 * 1024**2),
-            "cpu": max(int(ram_available * 0.75), 512 * 1024**2),
+            0: max(int(free_bytes * 0.88), 1),
+            "cpu": max(int(ram_available * 0.75), 1),
         }
 
     @staticmethod
