@@ -5,13 +5,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from ...core.inference.runtime import (
+from core.inference.runtime import (
     InferenceError,
     LocalInferenceEngine,
     ModelLoadError,
     ModelNotLoadedError,
 )
-from ...shared.dtos.runtime import BenchmarkRequest, InferenceRequest, LoadModelRequest
+from shared.dtos.runtime import BenchmarkRequest, InferenceRequest, LoadModelRequest
 
 
 def get_inference_engine(request: Request) -> LocalInferenceEngine:
