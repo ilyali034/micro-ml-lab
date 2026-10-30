@@ -73,6 +73,16 @@ A classification checkpoint must have a trained classification head. A plain BER
 
 For causal models, throughput is generated tokens divided by total measured generation time. For encoder tasks, throughput uses processed input tokens. The warm-up phase is excluded from samples. Compare runs only when model revision, prompt, task, dtype, device, generation settings and iteration count are held constant.
 
+## Tests
+
+Install test tooling and run the runtime lifecycle tests from the repository root:
+
+    python -m pip install -r requirements-dev.txt
+    $env:PYTHONPATH = "$PWD\src"
+    python -m pytest tests/test_local_inference_runtime.py -q
+
+These tests cover idle lifecycle behavior and input validation. A full model/GPU smoke test still needs to be run on the target machine.
+
 ## Current scope
 
 This runtime is the inference foundation. Fine-tuning/LoRA, datasets, RAG/vector stores, GGUF/llama.cpp, streaming generation and multi-model scheduling are separate follow-up modules.
