@@ -12,6 +12,8 @@ from ...core.inference.runtime import (
     ModelNotLoadedError,
 )
 from ...shared.dtos.runtime import BenchmarkRequest, InferenceRequest, LoadModelRequest
+
+
 def get_inference_engine(request: Request) -> LocalInferenceEngine:
     engine = getattr(request.app.state, "inference_engine", None)
     if engine is None:
