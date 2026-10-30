@@ -19,6 +19,7 @@ async def lifespan(app):
 
     logger.info('Initializing database...') 
     _db_context = await init_db(strategy="aiosqlite")
+    app.state.db_context = _db_context
     logger.info('Database initialized successfully')
 
     _inference_engine = LocalInferenceEngine()
