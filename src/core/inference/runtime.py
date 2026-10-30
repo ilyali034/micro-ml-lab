@@ -264,17 +264,20 @@ class LocalInferenceEngine:
 
                 with torch.inference_mode():
                     if active.task == "causal":
-                        output = active.model.generate(
-                            **encoded,
-                            max_new_tokens=max_new_tokens,
-                            do_sample=do_sample,
-                            temperature=temperature if do_sample else None,
-                            top_p=top_p if do_sample else None,
-                            top_k=top_k if do_sample else None,
-                            repetition_penalty=repetition_penalty,
-                            pad_token_id=active.tokenizer.pad_token_id,
-                            eos_token_id=active.tokenizer.eos_token_id,
-                        )
+                        generation_kwargs: dict[str, Any] = {
+                            "max_new_tokens": max_new_tokens,
+                            "do_sample": do_sample,
+                            "repetition_penalty": repetition_penalty,
+                            "pad_token_id": active.tokenizer.pad_token_id,
+                            "eos_token_id": active.tokenizer.eos_token_id,
+                        }
+                        if do_sample:
+                            generation_kwargs.update({
+                                "temperature": temperature,
+                                "top_p": top_p,
+                                "top_k": top_k,
+                            })
+                        output = active.model.generate(**encoded, **generation_kwargs)
                         generated = output[0, input_tokens:]
                         result: Any = active.tokenizer.decode(
                             generated.detach().cpu().tolist(),
