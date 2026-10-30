@@ -217,6 +217,7 @@ class LocalInferenceEngine:
                 logger.info("Loaded model %s successfully", model_id)
                 return self.model_info()
             except Exception as exc:
+                self._active = None
                 if new_model is not None:
                     del new_model
                 if new_tokenizer is not None:
