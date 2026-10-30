@@ -1,0 +1,8 @@
+# Install a CUDA-compatible PyTorch build separately from https://pytorch.org/get-started/locally/
+streamlit>=1.38
+transformers>=4.44
+accelerate>=0.34
+safetensors>=0.4
+sentencepiece>=0.2
+psutil>=6.0
+pandas>=2.2
