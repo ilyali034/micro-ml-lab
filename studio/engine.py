@@ -139,7 +139,7 @@ def run_inference(model, tokenizer, task: str, text: str, max_new_tokens: int = 
                 f"{tokenizer.decode([idx]).strip()}  —  {float(score):.3f}"
                 for score, idx in zip(best.values, best.indices)
             )
-            output_tokens = 1
+            output_tokens = int(inputs["input_ids"].shape[-1])
         elif task == "classification":
             logits = model(**inputs).logits[0]
             probs = torch.softmax(logits, dim=-1)
@@ -149,7 +149,7 @@ def run_inference(model, tokenizer, task: str, text: str, max_new_tokens: int = 
                 f"{labels.get(int(idx), 'LABEL_' + str(int(idx)))}  —  {float(score):.4f}"
                 for score, idx in zip(top.values, top.indices)
             )
-            output_tokens = 1
+            output_tokens = int(inputs["input_ids"].shape[-1])
         else:
             hidden = model(**inputs).last_hidden_state
             mask = inputs.get("attention_mask")
@@ -160,7 +160,7 @@ def run_inference(model, tokenizer, task: str, text: str, max_new_tokens: int = 
                 embedding = (hidden * expanded).sum(dim=1) / expanded.sum(dim=1).clamp(min=1)
             vector = embedding[0].detach().float().cpu()
             result = f"Вектор размерности: {vector.numel()}\nПервые 16 значений: {vector[:16].tolist()}"
-            output_tokens = 1
+            output_tokens = int(inputs["input_ids"].shape[-1])
 
     elapsed = time.perf_counter() - started
     return {
