@@ -92,13 +92,13 @@ class LocalInferenceEngine:
             resources = self._hardware.get_system_resources()
             active = self._active
             return {
-            "state": "loaded" if active else "idle",
-            "active_model": self.model_info() if active else None,
-            "resources": resources,
-            "torch": torch.__version__,
-            "cuda_available": torch.cuda.is_available(),
-            "cuda_version": torch.version.cuda,
-        }
+                "state": "loaded" if active else "idle",
+                "active_model": self.model_info() if active else None,
+                "resources": resources,
+                "torch": torch.__version__,
+                "cuda_available": torch.cuda.is_available(),
+                "cuda_version": torch.version.cuda,
+            }
 
     def model_info(self) -> dict[str, Any]:
         with self._lock:
