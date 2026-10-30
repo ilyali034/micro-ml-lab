@@ -1,7 +1,6 @@
 from uuid import UUID
-from fastapi import Depends, status, HTTPException, APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from typing import Annotated
-from fastapi import Request
 import logging
 
 from ...shared.dtos.models import ModelDto, CreateModelDto
