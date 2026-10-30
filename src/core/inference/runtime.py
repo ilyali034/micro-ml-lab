@@ -5,7 +5,7 @@ import json
 import logging
 import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -88,9 +88,10 @@ class LocalInferenceEngine:
         return self._active is not None
 
     def status(self) -> dict[str, Any]:
-        resources = self._hardware.get_system_resources()
-        active = self._active
-        return {
+        with self._lock:
+            resources = self._hardware.get_system_resources()
+            active = self._active
+            return {
             "state": "loaded" if active else "idle",
             "active_model": self.model_info() if active else None,
             "resources": resources,
